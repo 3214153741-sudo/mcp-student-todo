@@ -2,77 +2,78 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>学生日程待办智能助理</title>
+    <title>MCP 学生日程&待办智能助理</title>
     <style>
-        *{box-sizing: border-box;margin:0;padding:0;font-family:system-ui}
-        body{background:#f4f7fa;padding:24px;max-width:900px;margin:0 auto}
-        h1{color:#222;margin-bottom:20px;font-size:24px}
-        .container{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-        .card{background:white;padding:20px;border-radius:12px;box-shadow:0 2px 8px #00000012}
-        .chat-box{height:380px;overflow-y:auto;border:1px solid #eee;padding:12px;border-radius:8px;margin-bottom:12px}
-        .msg{margin:8px 0;padding:8px 10px;border-radius:6px;max-width:85%}
-        .user{background:#e8f3ff;margin-left:auto}
-        .bot{background:#f3f4f6}
-        .input-area{display:flex;gap:8px}
-        input{flex:1;padding:10px;border:1px solid #ddd;border-radius:6px}
-        button{padding:10px 16px;background:#2563eb;color:white;border:none;border-radius:6px;cursor:pointer}
-        .todo-item{padding:10px;border-bottom:1px solid #eee}
+        * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+        body { background:#f6f7f9; padding:20px; margin:0; }
+        .wrap { max-width: 920px; margin: 0 auto; }
+        h1 { text-align:center; font-size:22px; color:#333; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap:20px; }
+        .box { background:#fff; padding:18px; border-radius:12px; }
+        h3 { margin-top:0; font-size:16px; color:#444; }
+        #chatArea { min-height:320px; max-height:320px; overflow-y:auto; border:1px #eee solid; padding:10px; margin-bottom:12px; }
+        .msg { margin:6px 0; padding:6px 8px; border-radius:8px; max-width:85%; }
+        .userMsg { background:#e6f0ff; color:#165; margin-left:auto; }
+        .botMsg { background:#f3f4f6; color:#222; }
+        .inputRow { display:flex; gap:8px; }
+        input { flex:1; padding:9px; border:1px #ddd solid; border-radius:8px; }
+        button { padding:9px 16px; background:#2b78f5; color:white; border:none; border-radius:8px; cursor:pointer; }
+        #todoPanel { min-height:320px; max-height:320px; overflow-y:auto; border:1px #eee solid; padding:10px; }
+        .todo-item { padding:8px; border-bottom: 1px #f0f0f0 solid; }
     </style>
 </head>
 <body>
-    <h1>📅 MCP 学生日程&待办智能助理</h1>
-    <div class="container">
-        <div class="card">
+<div class="wrap">
+    <h1>📇 MCP 学生日程&待办智能助理</h1>
+    <div class="row">
+        <div class="box">
             <h3>对话交互</h3>
-            <div class="chat-box" id="chat"></div>
-            <div class="input-area">
-                <input id="userInput" placeholder="跟我说你的安排，例如：明天晚上7点做高数作业">
-                <button onclick="sendMsg()">发送</button>
+            <div id="chatArea"></div>
+            <div class="inputRow">
+                <input id="inp" placeholder="跟我说你的安排，例如：明天晚上7点做高数作业">
+                <button onclick="send()">发送</button>
             </div>
         </div>
-        <div class="card">
+        <div class="box">
             <h3>待办清单</h3>
-            <div id="todoList"></div>
+            <div id="todoPanel"></div>
         </div>
     </div>
-    <script>
-        function sendMsg(){
-            const text = document.getElementById("userInput").value.trim()
-            if(!text) return
-            addMsg("user", text)
-            document.getElementById("userInput").value=""
-            fetch("/chat",{
-                method:"POST",
-                headers:{"Content-Type":"application/json"},
-                body:JSON.stringify({msg:text})
-            }).then(r=>r.json()).then(res=>{
-                addMsg("bot",res.reply)
-                refreshTodo()
-            })
-        }
-        function addMsg(type,text){
-            const box=document.getElementById("chat")
-            const div=document.createElement("div")
-            div.className="msg "+type
-            div.innerText=text
-            box.appendChild(div)
-            box.scrollTop=box.scrollHeight
-        }
-        function refreshTodo(){
-            fetch("/todos")
-            .then(r=>r.json())
-            .then(data=>{
-                const el=document.getElementById("todoList")
-                el.innerHTML=""
-                data.forEach(item=>{
-                    const d=document.createElement("div")
-                    d.className="todo-item"
-                    d.innerText=`${item.plan_time} | ${item.content}`
-                    el.appendChild(d)
-                })
-            })
-        }
-        refreshTodo()
-    </script>
+</div>
+<script>
+async function renderTodos(){
+    const res = await fetch("/get_todos");
+    const list = await res.json();
+    const panel = document.getElementById("todoPanel");
+    panel.innerHTML = "";
+    if(list.length === 0){
+        panel.innerHTML = "<div style='color:#999'>暂无待办任务</div>";
+        return;
+    }
+    list.forEach(it=>{
+        // ✅ 重点：取出 plan_time 和 content 拼接文字
+        const text = `【${it.plan_time}】 ${it.content}`;
+        panel.innerHTML += `<div class="todo-item">${text}</div>`
+    })
+}
+async function send(){
+    const text = document.getElementById("inp").value.trim();
+    if(!text) return;
+    const chat = document.getElementById("chatArea");
+    chat.innerHTML += `<div class="msg userMsg">你：${text}</div>`;
+    document.getElementById("inp").value = "";
+    const r = await fetch("/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ msg:text })
+    })
+    const ret = await r.json();
+    chat.innerHTML += `<div class="msg botMsg">助理：${ret.reply}</div>`;
+    chat.scrollTop = chat.scrollHeight;
+    renderTodos();
+}
+// 页面加载刷新清单
+window.onload = renderTodos;
+</script>
 </body>
 </html>
